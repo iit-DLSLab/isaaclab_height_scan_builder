@@ -19,7 +19,7 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
     const auto cloudTopic = this->declare_parameter<std::string>(
         "cloud_topic", "/filtered");
     const auto socketAddr = this->declare_parameter<std::string>(
-        "socket_addr", "tcp://*:5005");
+        "socket_addr", "tcp://localhost:5005");
 
     this->_height_scan_cfg.width = this->declare_parameter<double>("width", 1.0);
     this->_height_scan_cfg.height = this->declare_parameter<double>("height", 1.6);
@@ -32,7 +32,7 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
 
     this->_context = std::make_unique<zmq::context_t>(1);
     this->_socket = std::make_unique<zmq::socket_t>(*this->_context, ZMQ_PUB);
-    this->_socket->bind(socketAddr);
+    this->_socket->connect(socketAddr);
 
     this->_marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
         "height_scan_markers", 1);
@@ -194,7 +194,7 @@ void HeightScanBuilder::buildHeightScan()
             }
         }
     }
-    // this->publishScan(scan);
+    this->publishScan(scan);
     this->publishMarkers(scan);
 }
 

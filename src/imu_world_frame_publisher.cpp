@@ -16,11 +16,13 @@ ImuWorldFramePublisherNode::ImuWorldFramePublisherNode(const rclcpp::NodeOptions
 : Node("imu_world_frame_publisher", options)
 {
   declare_parameter<std::string>("imu_topic", "/imu");
+  declare_parameter<std::string>("cloud_topic", "/hesai_jt128_front/points");
   declare_parameter<std::string>("world_frame", "world");
   declare_parameter<std::string>("base_link", "pelvis");
   declare_parameter<std::string>("imu_frame", "imu_link");
 
   imu_topic_ = get_parameter("imu_topic").as_string();
+  cloud_topic_ = get_parameter("cloud_topic").as_string();
   world_frame_ = get_parameter("world_frame").as_string();
   base_link_ = get_parameter("base_link").as_string();
   imu_frame_ = get_parameter("imu_frame").as_string();
@@ -53,18 +55,27 @@ ImuWorldFramePublisherNode::ImuWorldFramePublisherNode(const rclcpp::NodeOptions
     throw std::runtime_error("Could not initialize transform");
   }
 
+  // The static lookup is only needed during construction.
+  tf_listener_.reset();
+  tf_buffer_.reset();
+
+  auto qos = rclcpp::SensorDataQoS();
   imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
-    imu_topic_, rclcpp::SensorDataQoS(),
+    imu_topic_, qos,
     std::bind(&ImuWorldFramePublisherNode::imuCallback, this, std::placeholders::_1));
+  cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
+    cloud_topic_, qos,
+    std::bind(&ImuWorldFramePublisherNode::cloudCallback, this, std::placeholders::_1));
 
   RCLCPP_INFO(get_logger(), "ImuWorldFramePublisherNode ready");
   RCLCPP_INFO(get_logger(), "  imu_topic: %s", imu_topic_.c_str());
+  RCLCPP_INFO(get_logger(), "  cloud_topic: %s", cloud_topic_.c_str());
   RCLCPP_INFO(get_logger(), "  world_frame: %s", world_frame_.c_str());
   RCLCPP_INFO(get_logger(), "  base_link: %s", base_link_.c_str());
   RCLCPP_INFO(get_logger(), "  imu_frame: %s", imu_frame_.c_str());
 }
 
-void ImuWorldFramePublisherNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
+void ImuWorldFramePublisherNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr & msg)
 {
   const auto & q_msg = msg->orientation;
   const Eigen::Quaterniond w_q_imu(q_msg.w, q_msg.x, q_msg.y, q_msg.z);
@@ -79,13 +90,38 @@ void ImuWorldFramePublisherNode::imuCallback(const sensor_msgs::msg::Imu::Shared
   const Eigen::Quaterniond q_curr = (imu_read * q_offset).normalized();
 
   // Delta rotation from IMU relative to static reference transform.
-  const Eigen::Quaterniond q_delta = q_w_imu_ref_ * q_curr;
+  q_delta_latest_ = (q_w_imu_ref_ * q_curr).normalized();
+  has_latest_orientation_ = true;
+}
 
-  tf2::Quaternion tf_q(q_delta.x(), q_delta.y(), q_delta.z(), q_delta.w());
+void ImuWorldFramePublisherNode::cloudCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & msg)
+{
+  if (!has_latest_orientation_) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "Received pointcloud before any valid IMU orientation");
+    return;
+  }
+
+  publishTransform(
+    rclcpp::Time(msg->header.stamp, get_clock()->get_clock_type()), q_delta_latest_);
+}
+
+void ImuWorldFramePublisherNode::publishTransform(
+  const rclcpp::Time & stamp, const Eigen::Quaterniond & q_delta)
+{
+  // Remove the yaw component: decompose q_delta = q_yaw * q_rp, keep only q_rp.
+  const double yaw = std::atan2(
+    2.0 * (q_delta.w() * q_delta.z() + q_delta.x() * q_delta.y()),
+    1.0 - 2.0 * (q_delta.y() * q_delta.y() + q_delta.z() * q_delta.z()));
+  const Eigen::Quaterniond q_yaw(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+  const Eigen::Quaterniond q_rp = (q_yaw.inverse() * q_delta).normalized();
+
+  tf2::Quaternion tf_q(q_rp.x(), q_rp.y(), q_rp.z(), q_rp.w());
   tf_q.normalize();
 
   geometry_msgs::msg::TransformStamped tf_world_pelvis;
-  tf_world_pelvis.header.stamp = msg->header.stamp;
+  tf_world_pelvis.header.stamp = stamp;
   tf_world_pelvis.header.frame_id = world_frame_;
   tf_world_pelvis.child_frame_id = base_link_;
   tf_world_pelvis.transform.translation.x = 0.0;
