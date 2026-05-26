@@ -159,10 +159,37 @@ void HeightScanBuilder::buildHeightScan()
                     indices,
                     squaredDistances) == 0)
             {
+                // No point found: average the max-z of the 4 neighbouring grid positions
+                const double res = this->_height_scan_cfg.resolution;
+                const std::array<std::pair<double,double>, 4> neighbours = {{
+                    {x - res, y}, {x + res, y}, {x, y - res}, {x, y + res}
+                }};
+                float zSum = 0.0f;
+                int zCount = 0;
+                for (const auto & [nx, ny] : neighbours)
+                {
+                    std::vector<int> nIndices;
+                    std::vector<float> nDistances;
+                    if (kdtree.radiusSearch(
+                            pcl::PointXYZ(nx, ny, 0.0F),
+                            res / 2,
+                            nIndices,
+                            nDistances) > 0)
+                    {
+                        float nMaxZ = -std::numeric_limits<float>::infinity();
+                        for (const int nIdx : nIndices)
+                        {
+                            if (cloud->points[nIdx].z > nMaxZ)
+                                nMaxZ = cloud->points[nIdx].z;
+                        }
+                        zSum += nMaxZ;
+                        ++zCount;
+                    }
+                }
                 PointScan * pointScan = scan.add_points();
                 pointScan->set_x(x);
                 pointScan->set_y(y);
-                pointScan->set_z(5.0); // No point found, set to a default high value
+                pointScan->set_z(zCount > 0 ? zSum / zCount : 5.0f);
                 continue;
             }
 
