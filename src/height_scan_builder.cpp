@@ -189,7 +189,7 @@ void HeightScanBuilder::buildHeightScan()
                 PointScan * pointScan = scan.add_points();
                 pointScan->set_x(x);
                 pointScan->set_y(y);
-                pointScan->set_z(zCount > 0 ? zSum / zCount : 5.0f);
+                pointScan->set_z(zCount > 0 ? zSum / zCount : 0.0f);
                 continue;
             }
 

@@ -1,0 +1,41 @@
+# ============================ filter_improved.yaml ============================
+self_filter:
+  ros__parameters:
+    sensor_frame: ""
+
+    # For spheres (single scale & padding)
+    default_sphere_scale: 1.0
+    default_sphere_padding: 0.01
+
+    # For boxes (x,y,z scale & padding)
+    default_box_scale: [1.0, 1.0, 1.0]
+    default_box_padding: [0.01, 0.01, 0.01]
+
+    # For cylinders (radial scale, vertical scale, radial padding, vertical padding)
+    default_cylinder_scale: [1.0, 1.0]
+    default_cylinder_padding: [0.01, 0.01]
+
+    keep_organized: false
+    zero_for_removed_points: false
+    invert: false
+    min_sensor_dist: 0.1
+
+    # Link definitions
+    self_see_links:
+      names:
+        - pelvis
+        - hip_roll_1_link
+        - hip_roll_2_link
+        - hip_roll_3_link
+        - hip_roll_4_link
+        - hip_pitch_1_link
+        - hip_pitch_2_link
+        - hip_pitch_3_link
+        - hip_pitch_4_link
+        - knee_pitch_1_link
+        - knee_pitch_2_link
+        - knee_pitch_3_link
+        - knee_pitch_4_link
+        - hesai_jt128_front_link
+        - hesai_jt128_back_link
+
