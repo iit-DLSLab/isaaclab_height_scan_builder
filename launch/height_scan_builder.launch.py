@@ -34,6 +34,18 @@ def generate_launch_description():
         'output_topic',
         default_value='/points_filtered'
     )
+    scan_cloud_topic_arg = DeclareLaunchArgument(
+        'scan_cloud_topic',
+        default_value='height_scan_cloud'
+    )
+    marker_topic_arg = DeclareLaunchArgument(
+        'marker_topic',
+        default_value='height_scan_markers'
+    )
+    publish_markers_arg = DeclareLaunchArgument(
+        'publish_markers',
+        default_value='true'
+    )
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
         default_value='false',
@@ -114,7 +126,7 @@ def generate_launch_description():
         ),
         condition=IfCondition(LaunchConfiguration('self_filter')),
         launch_arguments={
-            'filter_config': os.path.join(get_package_share_directory('isaaclab_height_scan_builder'), 'params', ),
+            'filter_config': os.path.join(get_package_share_directory('isaaclab_height_scan_builder'), 'params', 'kyon_self_filter.yaml'),
             'in_pointcloud_topic': LaunchConfiguration('output_topic'),
             'out_pointcloud_topic': '/filtered',
             'robot_description': Command('cat ' + os.path.join(get_package_share_directory('kyon_urdf'), 'urdf', 'kyon_spheres.urdf')),
@@ -130,6 +142,12 @@ def generate_launch_description():
         parameters=[
             {
                 'use_sim_time': LaunchConfiguration('use_sim_time'),
+                'scan_cloud_topic': LaunchConfiguration('scan_cloud_topic'),
+                'marker_topic': LaunchConfiguration('marker_topic'),
+                'publish_markers': ParameterValue(
+                    LaunchConfiguration('publish_markers'),
+                    value_type=bool,
+                ),
                 'target_frame': ParameterValue(
                     PythonExpression([
                         '"world" if "',
@@ -153,6 +171,9 @@ def generate_launch_description():
         lidar_topic1_name_arg,
         lidar_topic2_name_arg,
         output_topic_arg,
+        scan_cloud_topic_arg,
+        marker_topic_arg,
+        publish_markers_arg,
         use_sim_time_arg,
         world_frame_arg,
         self_filter_arg,

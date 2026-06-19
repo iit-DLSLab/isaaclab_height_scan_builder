@@ -3,11 +3,13 @@
 #include <chrono>
 #include <functional>
 #include <stdexcept>
+#include <thread>
 
 #include <Eigen/Geometry>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
 
 namespace isaaclab
 {
@@ -36,23 +38,26 @@ ImuWorldFramePublisherNode::ImuWorldFramePublisherNode(const rclcpp::NodeOptions
   tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
 
   // Initialize q_w_imu_ref from static transform base_link <- imu_frame
-  try {
-    const auto tf_base_imu = tf_buffer_->lookupTransform(
-      base_link_, imu_frame_,
-      rclcpp::Time(0, 0, get_clock()->get_clock_type()),
-      rclcpp::Duration(std::chrono::milliseconds(500)));
-    const auto & q = tf_base_imu.transform.rotation;
-    const Eigen::Quaterniond b_q_imu(q.w, q.x, q.y, q.z);
-    
-    // Apply RPY offset (π/2, 0, 0) to the reference orientation
-    // const Eigen::AngleAxisd offset_angle_axis(M_PI, Eigen::Vector3d::UnitX());
-    // const Eigen::Quaterniond q_offset(offset_angle_axis);
-    
-    q_w_imu_ref_ = b_q_imu; //* q_offset).normalized();
-    has_reference_orientation_ = true;
-  } catch (const tf2::TransformException & ex) {
-    RCLCPP_ERROR(get_logger(), "Failed to get %s <- %s transform: %s", base_link_.c_str(), imu_frame_.c_str(), ex.what());
-    throw std::runtime_error("Could not initialize transform");
+  for(;;)
+  {
+    try {
+      const auto tf_base_imu = tf_buffer_->lookupTransform(
+        base_link_, imu_frame_,
+        rclcpp::Time(0, 0, get_clock()->get_clock_type()),
+        rclcpp::Duration(std::chrono::milliseconds(5000)));
+      const auto & q = tf_base_imu.transform.rotation;
+      const Eigen::Quaterniond b_q_imu(q.w, q.x, q.y, q.z);
+      
+      // Apply RPY offset (π/2, 0, 0) to the reference orientation
+      // const Eigen::AngleAxisd offset_angle_axis(M_PI, Eigen::Vector3d::UnitX());
+      // const Eigen::Quaterniond q_offset(offset_angle_axis);
+      
+      q_w_imu_ref_ = b_q_imu; //* q_offset).normalized();
+      has_reference_orientation_ = true;
+      break;
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_ERROR(get_logger(), "Failed to get %s <- %s transform: %s", base_link_.c_str(), imu_frame_.c_str(), ex.what());
+    }
   }
 
   // The static lookup is only needed during construction.
@@ -85,12 +90,12 @@ void ImuWorldFramePublisherNode::imuCallback(const sensor_msgs::msg::Imu::ConstS
   }
 
   const Eigen::Quaterniond imu_read = w_q_imu.normalized();
-  const Eigen::AngleAxisd offset_angle_axis(M_PI, Eigen::Vector3d::UnitX());
-  const Eigen::Quaterniond q_offset(offset_angle_axis);
-  const Eigen::Quaterniond q_curr = (imu_read * q_offset).normalized();
 
   // Delta rotation from IMU relative to static reference transform.
-  q_delta_latest_ = (q_w_imu_ref_ * q_curr).normalized();
+  // b_q_imu * w_q_imu
+  // q_delta_latest_ = (q_w_imu_ref_ * imu_read).normalized();
+  // w_R_base = w_R_imu * base_R_imu.T()
+  q_delta_latest_ = (imu_read * q_w_imu_ref_.inverse()).normalized();
   has_latest_orientation_ = true;
 }
 

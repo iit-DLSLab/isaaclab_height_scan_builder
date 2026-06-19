@@ -31,6 +31,7 @@ public:
 
     void buildHeightScan();
     void publishScan(const HeightScanMsg & scan);
+    void publishPointCloud(const HeightScanMsg & scan);
     void publishMarkers(const HeightScanMsg & scan);
     double loopRateHz() const;
 
@@ -45,6 +46,7 @@ private:
     std::shared_ptr<tf2_ros::TransformListener> _tf_listener;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr _cloud_sub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr _marker_pub;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr _cloud_pub;
     mutable std::mutex _cloud_mutex;
 
     HeightScanCfg _height_scan_cfg;
@@ -53,4 +55,5 @@ private:
     std::int32_t _seq{0};
     std::string _target_frame{"base_link"};
     double _loop_rate_hz{10.0};
+    bool _publish_markers{true};
 };
