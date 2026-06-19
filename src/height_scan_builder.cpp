@@ -20,6 +20,12 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
         "cloud_topic", "/filtered");
     const auto socketAddr = this->declare_parameter<std::string>(
         "socket_addr", "tcp://localhost:5005");
+    const auto scanCloudTopic = this->declare_parameter<std::string>(
+        "scan_cloud_topic", "height_scan_cloud");
+    const auto markerTopic = this->declare_parameter<std::string>(
+        "marker_topic", "height_scan_markers");
+    this->_publish_markers = this->declare_parameter<bool>(
+        "publish_markers", true);
 
     this->_height_scan_cfg.width = this->declare_parameter<double>("width", 1.0);
     this->_height_scan_cfg.height = this->declare_parameter<double>("height", 1.6);
@@ -34,8 +40,16 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
     this->_socket = std::make_unique<zmq::socket_t>(*this->_context, ZMQ_PUB);
     this->_socket->connect(socketAddr);
 
-    this->_marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-        "height_scan_markers", 1);
+    this->_cloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+        scanCloudTopic,
+        rclcpp::SensorDataQoS());
+
+    if (this->_publish_markers)
+    {
+        this->_marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+            markerTopic,
+            1);
+    }
 
     this->_cloud_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         cloudTopic,
@@ -44,10 +58,15 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
 
     RCLCPP_INFO(
         this->get_logger(),
-        "Listening on %s and publishing scans over %s at %.2f Hz",
+        "Listening on %s and publishing scans over %s and %s at %.2f Hz",
         cloudTopic.c_str(),
         socketAddr.c_str(),
+        scanCloudTopic.c_str(),
         this->_loop_rate_hz);
+    RCLCPP_INFO(
+        this->get_logger(),
+        "MarkerArray publisher is %s",
+        this->_publish_markers ? "enabled" : "disabled");
 }
 
 double HeightScanBuilder::loopRateHz() const
@@ -222,7 +241,34 @@ void HeightScanBuilder::buildHeightScan()
         }
     }
     this->publishScan(scan);
-    this->publishMarkers(scan);
+    this->publishPointCloud(scan);
+
+    if (this->_publish_markers)
+    {
+        this->publishMarkers(scan);
+    }
+}
+
+void HeightScanBuilder::publishPointCloud(const HeightScanMsg & scan)
+{
+    pcl::PointCloud<pcl::PointXYZ> scanCloud;
+    scanCloud.reserve(static_cast<std::size_t>(scan.points_size()));
+
+    for (int i = 0; i < scan.points_size(); ++i)
+    {
+        const auto & pt = scan.points(i);
+        scanCloud.push_back(pcl::PointXYZ(
+            static_cast<float>(pt.x()),
+            static_cast<float>(pt.y()),
+            static_cast<float>(pt.z())));
+    }
+
+    sensor_msgs::msg::PointCloud2 cloudMsg;
+    pcl::toROSMsg(scanCloud, cloudMsg);
+    cloudMsg.header.frame_id = this->_frame_id;
+    cloudMsg.header.stamp = rclcpp::Time(scan.stamp());
+
+    this->_cloud_pub->publish(cloudMsg);
 }
 
 void HeightScanBuilder::publishMarkers(const HeightScanMsg & scan)
