@@ -1,0 +1,50 @@
+# ============================ filter_improved.yaml ============================
+self_filter:
+  ros__parameters:
+    sensor_frame: ""
+
+    # For spheres (single scale & padding)
+    default_sphere_scale: 1.0
+    default_sphere_padding: 0.025
+
+    # For boxes (x,y,z scale & padding)
+    default_box_scale: [1.0, 1.0, 1.0]
+    default_box_padding: [0.025, 0.025, 0.025]
+
+    # For cylinders (radial scale, vertical scale, radial padding, vertical padding)
+    default_cylinder_scale: [1.0, 1.0]
+    default_cylinder_padding: [0.025, 0.025]
+
+    keep_organized: false
+    zero_for_removed_points: false
+    invert: false
+    min_sensor_dist: 0.1
+
+    # Link definitions
+    self_see_links:
+      names:
+        - FL_hip
+        - FL_thigh
+        - FL_calf
+        - FL_calflower
+        - FL_calflower1
+        - FL_foot
+        - FR_hip
+        - FR_thigh
+        - FR_calf
+        - FR_calflower
+        - FR_calflower1
+        - FR_foot
+        - RL_hip
+        - RL_thigh
+        - RL_calf
+        - RL_calflower
+        - RL_calflower1
+        - RL_foot
+        - RR_hip
+        - RR_thigh
+        - RR_calf 
+        - RR_calflower
+        - RR_calflower1
+        - RR_foot
+                                  
