@@ -26,10 +26,10 @@ def generate_launch_description():
         'lidar_topic1_name',
         default_value='/input1'
     )
-    lidar_topic2_name_arg = DeclareLaunchArgument(
-        'lidar_topic2_name',
-        default_value='/input2'
-    )
+    # lidar_topic2_name_arg = DeclareLaunchArgument(
+    #     'lidar_topic2_name',
+    #     default_value='/input2'
+    # )
     output_topic_arg = DeclareLaunchArgument(
         'output_topic',
         default_value='/points_filtered'
@@ -92,7 +92,7 @@ def generate_launch_description():
         parameters=[
             {
                 'topic1': LaunchConfiguration('lidar_topic1_name'),
-                'topic2': LaunchConfiguration('lidar_topic2_name'),
+                # 'topic2': LaunchConfiguration('lidar_topic2_name'),
                 'sync_slop': 0.01,
                 'output_topic': LaunchConfiguration('output_topic'),
                 'filter_frame': LaunchConfiguration('base_link'),
@@ -126,10 +126,16 @@ def generate_launch_description():
         ),
         condition=IfCondition(LaunchConfiguration('self_filter')),
         launch_arguments={
-            'filter_config': os.path.join(get_package_share_directory('isaaclab_height_scan_builder'), 'params', 'kyon_self_filter.yaml'),
+            'filter_config': os.path.join(get_package_share_directory('isaaclab_height_scan_builder'), 'params', 'go2_self_filter.yaml'),
             'in_pointcloud_topic': LaunchConfiguration('output_topic'),
             'out_pointcloud_topic': '/filtered',
-            'robot_description': Command('cat ' + os.path.join(get_package_share_directory('kyon_urdf'), 'urdf', 'kyon_spheres.urdf')),
+            'robot_description': Command(
+                'cat ' + os.path.join(
+                    get_package_share_directory('go2_description'),
+                    'urdf',
+                    'go2_description.urdf',
+                )
+            ),
             'lidar_sensor_type': '0',
         }.items(),
     )
@@ -169,7 +175,7 @@ def generate_launch_description():
         base_link_arg,
         imu_frame_arg,
         lidar_topic1_name_arg,
-        lidar_topic2_name_arg,
+        # lidar_topic2_name_arg,
         output_topic_arg,
         scan_cloud_topic_arg,
         marker_topic_arg,

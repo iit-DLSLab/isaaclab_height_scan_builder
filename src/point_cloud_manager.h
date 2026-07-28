@@ -36,12 +36,12 @@ private:
   bool transformCloud(
     const Cloud2::ConstSharedPtr & msg,
     const std::string & to_frame,
-    pcl::PointCloud<pcl::PointXYZ> & out) const;
+    pcl::PointCloud<pcl::PointXYZ> & out);
 
   bool transformCloud(
     const Cloud2 & in,
     const std::string & to_frame,
-    Cloud2 & out) const;
+    Cloud2 & out);
 
   void filterCloud(
     const pcl::PointCloud<pcl::PointXYZ> & in,

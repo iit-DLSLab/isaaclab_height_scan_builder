@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.15)
 project(isaaclab_height_scan_builder)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
 find_package(cppzmq REQUIRED)
-find_package(Protobuf REQUIRED)
+set(protobuf_MODULE_COMPATIBLE ON)
+find_package(Protobuf CONFIG REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(PCL REQUIRED)

@@ -30,6 +30,8 @@
   <exec_depend>gz-plugin2</exec_depend>
   <exec_depend>gz-math7</exec_depend>
   <exec_depend>protobuf</exec_depend>
+  <exec_depend>go2_description</exec_depend>
+  <exec_depend>robot_self_filter</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

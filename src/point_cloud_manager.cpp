@@ -107,7 +107,7 @@ void PointCloudManagerNode::singleTopicCallback(const Cloud2::ConstSharedPtr & m
 bool PointCloudManagerNode::transformCloud(
   const Cloud2::ConstSharedPtr & msg,
   const std::string & to_frame,
-  pcl::PointCloud<pcl::PointXYZ> & out) const
+  pcl::PointCloud<pcl::PointXYZ> & out)
 {
   sensor_msgs::msg::PointCloud2 transformed_msg;
   if (!transformCloud(*msg, to_frame, transformed_msg)) {
@@ -120,7 +120,7 @@ bool PointCloudManagerNode::transformCloud(
 bool PointCloudManagerNode::transformCloud(
   const Cloud2 & in,
   const std::string & to_frame,
-  Cloud2 & out) const
+  Cloud2 & out)
 {
   try {
     const auto tf = tf_buffer_->lookupTransform(
@@ -208,4 +208,3 @@ int main(int argc, char ** argv)
   rclcpp::shutdown();
   return 0;
 }
-
