@@ -148,6 +148,10 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {
+                'width': 0.8,
+                'height': 0.6,
+                'resolution': 0.1,
+                'offset_x': 0.4,
                 'use_sim_time': LaunchConfiguration('use_sim_time'),
                 'scan_cloud_topic': LaunchConfiguration('scan_cloud_topic'),
                 'marker_topic': LaunchConfiguration('marker_topic'),

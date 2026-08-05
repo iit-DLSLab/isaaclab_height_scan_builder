@@ -30,6 +30,8 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
     this->_height_scan_cfg.width = this->declare_parameter<double>("width", 1.0);
     this->_height_scan_cfg.height = this->declare_parameter<double>("height", 1.6);
     this->_height_scan_cfg.resolution = this->declare_parameter<double>("resolution", 0.1);
+    this->_height_scan_cfg.offset.x = this->declare_parameter<double>("offset_x", 0.0);
+    this->_height_scan_cfg.offset.y = this->declare_parameter<double>("offset_y", 0.0);
     this->_target_frame = this->declare_parameter<std::string>("target_frame", "base_link");
     this->_loop_rate_hz = this->declare_parameter<double>("loop_rate_hz", 30.0);
 
