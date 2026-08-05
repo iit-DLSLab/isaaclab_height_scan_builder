@@ -164,9 +164,9 @@ void HeightScanBuilder::buildHeightScan()
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(xyCloud);
 
-    for (double y = -this->_height_scan_cfg.width / 2; y <= this->_height_scan_cfg.width / 2; y += this->_height_scan_cfg.resolution)
+    for (double y = this->_height_scan_cfg.offset.y - this->_height_scan_cfg.width / 2; y <= this->_height_scan_cfg.offset.y + this->_height_scan_cfg.width / 2; y += this->_height_scan_cfg.resolution)
     {
-        for (double x = -this->_height_scan_cfg.height / 2; x <= this->_height_scan_cfg.height / 2; x += this->_height_scan_cfg.resolution)
+        for (double x = this->_height_scan_cfg.offset.x - this->_height_scan_cfg.height / 2; x <= this->_height_scan_cfg.offset.x + this->_height_scan_cfg.height / 2; x += this->_height_scan_cfg.resolution)
         {
             pcl::PointXYZ searchPoint(x, y, 0.0F);
             std::vector<int> indices;

@@ -75,6 +75,7 @@ def generate_launch_description():
             {
                 'use_sim_time': LaunchConfiguration('use_sim_time'),
                 'imu_topic': LaunchConfiguration('imu_topic'),
+                'cloud_topic': LaunchConfiguration('lidar_topic1_name'),
                 'world_frame': "world",
                 'base_link': LaunchConfiguration('base_link'),
                 'imu_frame': LaunchConfiguration('imu_frame'),

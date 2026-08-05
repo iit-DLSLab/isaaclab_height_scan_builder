@@ -26,7 +26,7 @@ echo "URDF utilizzato: $URDF"
 # JOINT_STATE_PID=$!
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
  
-python3 "$SCRIPT_DIR/lowstate_to_joint_states.py" &
+python3 "$SCRIPT_DIR/lowstate_to_joint_states.py" --ros-args -p use_sim_time:=true &
 JOINT_STATE_PID=$!
  
 sleep 1
@@ -58,9 +58,11 @@ fi
 echo "Joint states ricevuti correttamente."
  
 ros2 launch isaaclab_height_scan_builder height_scan_builder.launch.py \
-    world_frame:=false \
+    world_frame:=true \
     base_link:=base_link \
+    imu_frame:=imu \
+    imu_topic:=/imu \
     lidar_topic1_name:=/utlidar/cloud \
     self_filter:=true \
     output_topic:=/point_filtered \
-    use_sim_time:=false
+    use_sim_time:=true

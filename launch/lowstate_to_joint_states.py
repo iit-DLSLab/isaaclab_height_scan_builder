@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 
 from sensor_msgs.msg import JointState
+from sensor_msgs.msg import Imu
 from unitree_go.msg import LowState
 
 
@@ -32,11 +33,19 @@ class LowStateToJointStates(Node):
 
     def __init__(self):
         super().__init__("lowstate_to_joint_states")
+        if not self.has_parameter("use_sim_time"):
+            self.declare_parameter("use_sim_time", False)
 
         self.publisher = self.create_publisher(
             JointState,
             "/joint_states",
-            10,
+            1
+        )
+
+        self.publisher_imu = self.create_publisher(
+            Imu,
+            "/imu",
+            1,
         )
 
         self.subscription = self.create_subscription(
@@ -57,8 +66,10 @@ class LowStateToJointStates(Node):
             )
             return
 
+        time = self.get_clock().now().to_msg()
+
         joint_state = JointState()
-        joint_state.header.stamp = self.get_clock().now().to_msg()
+        joint_state.header.stamp = time
         joint_state.name = JOINT_NAMES
 
         joint_state.position = [
@@ -77,6 +88,22 @@ class LowStateToJointStates(Node):
         ]
 
         self.publisher.publish(joint_state)
+
+        imu_msg = Imu()
+        imu_msg.header.stamp = time
+        imu_msg.header.frame_id = "imu"
+        imu_msg.linear_acceleration.x = float(msg.imu_state.accelerometer[0])
+        imu_msg.linear_acceleration.y = float(msg.imu_state.accelerometer[1])
+        imu_msg.linear_acceleration.z = float(msg.imu_state.accelerometer[2])
+        imu_msg.angular_velocity.x = float(msg.imu_state.gyroscope[0])
+        imu_msg.angular_velocity.y = float(msg.imu_state.gyroscope[1])
+        imu_msg.angular_velocity.z = float(msg.imu_state.gyroscope[2])
+        imu_msg.orientation.x = float(msg.imu_state.quaternion[1])
+        imu_msg.orientation.y = float(msg.imu_state.quaternion[2])
+        imu_msg.orientation.z = float(msg.imu_state.quaternion[3])
+        imu_msg.orientation.w = float(msg.imu_state.quaternion[0])
+
+        self.publisher_imu.publish(imu_msg)
 
 
 def main() -> None:

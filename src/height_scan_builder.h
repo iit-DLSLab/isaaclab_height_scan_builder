@@ -19,9 +19,15 @@
 
 struct HeightScanCfg
 {
-    double width = 1.0;
-    double height = 1.6;
+    double width = 0.6;
+    double height = 0.8;
     double resolution = 0.1;
+    struct offset_t
+    {
+        double x = 0.4;
+        double y = 0.0;
+    };
+    offset_t offset;
 };
 
 class HeightScanBuilder : public rclcpp::Node
