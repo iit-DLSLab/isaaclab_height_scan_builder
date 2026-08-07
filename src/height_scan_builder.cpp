@@ -7,6 +7,7 @@
 
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/common/transforms.h>
+#include <pcl/filters/voxel_grid.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2/exceptions.h>
 #include <Eigen/Geometry>
@@ -34,6 +35,12 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
     this->_height_scan_cfg.offset.y = this->declare_parameter<double>("offset_y", 0.0);
     this->_target_frame = this->declare_parameter<std::string>("target_frame", "base_link");
     this->_loop_rate_hz = this->declare_parameter<double>("loop_rate_hz", 30.0);
+    this->_accumulation_time_sec = this->declare_parameter<double>(
+        "accumulation_time_sec", 0.30);
+    this->_max_accumulated_clouds = this->declare_parameter<std::int64_t>(
+        "max_accumulated_clouds", 10);
+    this->_accumulation_voxel_leaf = this->declare_parameter<double>(
+        "accumulation_voxel_leaf", 0.04);
 
     this->_tf_buffer = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     this->_tf_listener = std::make_shared<tf2_ros::TransformListener>(*this->_tf_buffer);
@@ -69,6 +76,12 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
         this->get_logger(),
         "MarkerArray publisher is %s",
         this->_publish_markers ? "enabled" : "disabled");
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Temporal accumulation: %.2f s, max %lld clouds, voxel %.3f m",
+        this->_accumulation_time_sec,
+        static_cast<long long>(this->_max_accumulated_clouds),
+        this->_accumulation_voxel_leaf);
 }
 
 double HeightScanBuilder::loopRateHz() const
@@ -121,16 +134,61 @@ void HeightScanBuilder::cloudCallback(const sensor_msgs::msg::PointCloud2::Share
         return;
     }
 
-    xyCloud->reserve(cloud->size());
+    std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> retainedClouds;
+    {
+        std::lock_guard<std::mutex> lock(this->_cloud_mutex);
+        this->_cloud_history.emplace_back(stampNs, cloud);
 
-    for (const auto & point : cloud->points)
+        const auto accumulationTimeNs = static_cast<std::int64_t>(
+            this->_accumulation_time_sec * 1e9);
+        while (!this->_cloud_history.empty() &&
+               stampNs - this->_cloud_history.front().first > accumulationTimeNs)
+        {
+            this->_cloud_history.pop_front();
+        }
+
+        while (this->_cloud_history.size() >
+               static_cast<std::size_t>(this->_max_accumulated_clouds))
+        {
+            this->_cloud_history.pop_front();
+        }
+
+        retainedClouds.reserve(this->_cloud_history.size());
+        for (const auto & historyEntry : this->_cloud_history)
+        {
+            retainedClouds.push_back(historyEntry.second);
+        }
+    }
+
+    auto accumulatedCloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+    std::size_t accumulatedPointCount = 0;
+    for (const auto & retainedCloud : retainedClouds)
+    {
+        accumulatedPointCount += retainedCloud->size();
+    }
+    accumulatedCloud->reserve(accumulatedPointCount);
+    for (const auto & retainedCloud : retainedClouds)
+    {
+        *accumulatedCloud += *retainedCloud;
+    }
+
+    auto filteredCloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+    pcl::VoxelGrid<pcl::PointXYZ> voxelGrid;
+    const auto voxelLeaf = static_cast<float>(this->_accumulation_voxel_leaf);
+    voxelGrid.setInputCloud(accumulatedCloud);
+    voxelGrid.setLeafSize(voxelLeaf, voxelLeaf, voxelLeaf);
+    voxelGrid.filter(*filteredCloud);
+
+    xyCloud->reserve(filteredCloud->size());
+
+    for (const auto & point : filteredCloud->points)
     {
         xyCloud->push_back(pcl::PointXYZ(point.x, point.y, 0.0F));
     }
 
     {
         std::lock_guard<std::mutex> lock(this->_cloud_mutex);
-        this->_cloud = std::move(cloud);
+        this->_cloud = std::move(filteredCloud);
         this->_xy_cloud = std::move(xyCloud);
         this->_stamp_ns = stampNs;
         this->_frame_id = this->_target_frame;

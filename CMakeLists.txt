@@ -58,12 +58,24 @@ add_executable(imu_world_frame_publisher_node
   src/imu_world_frame_publisher.cpp
 )
 
+add_executable(lidar_extrinsic_calibrator_node
+  src/lidar_extrinsic_calibrator.cpp
+)
+
 target_include_directories(point_cloud_manager_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${PCL_INCLUDE_DIRS}
 )
 
+target_include_directories(lidar_extrinsic_calibrator_node PRIVATE
+  ${PCL_INCLUDE_DIRS}
+)
+
 target_link_libraries(point_cloud_manager_node
+  ${PCL_LIBRARIES}
+)
+
+target_link_libraries(lidar_extrinsic_calibrator_node
   ${PCL_LIBRARIES}
 )
 
@@ -81,6 +93,13 @@ ament_target_dependencies(point_cloud_manager_node
   message_filters
 )
 
+ament_target_dependencies(lidar_extrinsic_calibrator_node
+  message_filters
+  pcl_conversions
+  rclcpp
+  sensor_msgs
+)
+
 ament_target_dependencies(imu_world_frame_publisher_node
   rclcpp
   sensor_msgs
@@ -89,7 +108,7 @@ ament_target_dependencies(imu_world_frame_publisher_node
   tf2_geometry_msgs
 )
 
-install(TARGETS height_scan_builder_node point_cloud_manager_node imu_world_frame_publisher_node
+install(TARGETS height_scan_builder_node point_cloud_manager_node imu_world_frame_publisher_node lidar_extrinsic_calibrator_node
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

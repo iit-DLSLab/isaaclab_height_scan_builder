@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -54,6 +56,7 @@ private:
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr _marker_pub;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr _cloud_pub;
     mutable std::mutex _cloud_mutex;
+    std::deque<std::pair<std::int64_t, pcl::PointCloud<pcl::PointXYZ>::Ptr>> _cloud_history;
 
     HeightScanCfg _height_scan_cfg;
     std::string _frame_id;
@@ -62,4 +65,7 @@ private:
     std::string _target_frame{"base_link"};
     double _loop_rate_hz{10.0};
     bool _publish_markers{true};
+    double _accumulation_time_sec{0.30};
+    std::int64_t _max_accumulated_clouds{10};
+    double _accumulation_voxel_leaf{0.04};
 };

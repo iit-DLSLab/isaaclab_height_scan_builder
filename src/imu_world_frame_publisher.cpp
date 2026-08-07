@@ -18,7 +18,7 @@ ImuWorldFramePublisherNode::ImuWorldFramePublisherNode(const rclcpp::NodeOptions
 : Node("imu_world_frame_publisher", options)
 {
   declare_parameter<std::string>("imu_topic", "/imu");
-  declare_parameter<std::string>("cloud_topic", "/hesai_jt128_front/points");
+  declare_parameter<std::string>("cloud_topic", "/utlidar/cloud_base");
   declare_parameter<std::string>("world_frame", "world");
   declare_parameter<std::string>("base_link", "pelvis");
   declare_parameter<std::string>("imu_frame", "imu_link");
