@@ -66,6 +66,12 @@ private:
     double _loop_rate_hz{10.0};
     bool _publish_markers{true};
     double _accumulation_time_sec{0.30};
-    std::int64_t _max_accumulated_clouds{10};
+    std::int64_t _max_accumulated_clouds{0};
     double _accumulation_voxel_leaf{0.04};
+    double _outlier_radius{0.08};
+    std::int64_t _outlier_min_neighbors{3};
+    bool _enable_map_shift{false};
+    double _map_shift_x{0.0};
+    double _map_shift_y{0.0};
+    double _map_shift_z{0.0};
 };

@@ -54,6 +54,51 @@ def generate_launch_description():
         default_value='true'
     )
 
+    accumulation_time_sec_arg = DeclareLaunchArgument(
+        'accumulation_time_sec',
+        default_value='0.30',
+        description=(
+            'Point-cloud accumulation window in seconds; '
+            'set to 0.0 to use only the latest cloud'
+        )
+    )
+
+    outlier_radius_arg = DeclareLaunchArgument(
+        'outlier_radius',
+        default_value='0.08',
+        description=(
+            'Radius used to remove isolated points from the accumulated cloud; '
+            'set to 0.0 to disable the filter'
+        )
+    )
+
+    outlier_min_neighbors_arg = DeclareLaunchArgument(
+        'outlier_min_neighbors',
+        default_value='3',
+        description='Minimum number of neighbors required inside outlier_radius'
+    )
+
+    enable_map_shift_arg = DeclareLaunchArgument(
+        'enable_map_shift',
+        default_value='false',
+        description='Apply map_shift_x/y/z to every generated heightmap point'
+    )
+
+    map_shift_x_arg = DeclareLaunchArgument(
+        'map_shift_x',
+        default_value='0.0'
+    )
+
+    map_shift_y_arg = DeclareLaunchArgument(
+        'map_shift_y',
+        default_value='0.0'
+    )
+
+    map_shift_z_arg = DeclareLaunchArgument(
+        'map_shift_z',
+        default_value='0.0'
+    )
+
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
         default_value='false',
@@ -77,6 +122,24 @@ def generate_launch_description():
     self_filter_arg = DeclareLaunchArgument(
         'self_filter',
         default_value='true'
+    )
+
+    model_path_arg = DeclareLaunchArgument(
+        'model_path',
+        default_value='',
+        description='Optional URDF or MuJoCo XML path used by the self-filter'
+    )
+
+    model_format_arg = DeclareLaunchArgument(
+        'model_format',
+        default_value='auto',
+        description='Robot model format: auto, urdf, or mujoco'
+    )
+
+    frame_prefix_arg = DeclareLaunchArgument(
+        'frame_prefix',
+        default_value='',
+        description='Prefix used by the MuJoCo TF publisher for body frames'
     )
 
 
@@ -192,6 +255,10 @@ def generate_launch_description():
                 )
             ),
 
+            'model_path': LaunchConfiguration('model_path'),
+            'model_format': LaunchConfiguration('model_format'),
+            'frame_prefix': LaunchConfiguration('frame_prefix'),
+
             'lidar_sensor_type': '0',
 
         }.items(),
@@ -219,6 +286,34 @@ def generate_launch_description():
                 'publish_markers': ParameterValue(
                     LaunchConfiguration('publish_markers'),
                     value_type=bool,
+                ),
+                'accumulation_time_sec': ParameterValue(
+                    LaunchConfiguration('accumulation_time_sec'),
+                    value_type=float,
+                ),
+                'outlier_radius': ParameterValue(
+                    LaunchConfiguration('outlier_radius'),
+                    value_type=float,
+                ),
+                'outlier_min_neighbors': ParameterValue(
+                    LaunchConfiguration('outlier_min_neighbors'),
+                    value_type=int,
+                ),
+                'enable_map_shift': ParameterValue(
+                    LaunchConfiguration('enable_map_shift'),
+                    value_type=bool,
+                ),
+                'map_shift_x': ParameterValue(
+                    LaunchConfiguration('map_shift_x'),
+                    value_type=float,
+                ),
+                'map_shift_y': ParameterValue(
+                    LaunchConfiguration('map_shift_y'),
+                    value_type=float,
+                ),
+                'map_shift_z': ParameterValue(
+                    LaunchConfiguration('map_shift_z'),
+                    value_type=float,
                 ),
 
                 'target_frame': ParameterValue(
@@ -248,6 +343,13 @@ def generate_launch_description():
         scan_cloud_topic_arg,
         marker_topic_arg,
         publish_markers_arg,
+        accumulation_time_sec_arg,
+        outlier_radius_arg,
+        outlier_min_neighbors_arg,
+        enable_map_shift_arg,
+        map_shift_x_arg,
+        map_shift_y_arg,
+        map_shift_z_arg,
 
         use_sim_time_arg,
 
@@ -255,6 +357,9 @@ def generate_launch_description():
         publish_world_frame_arg,
 
         self_filter_arg,
+        model_path_arg,
+        model_format_arg,
+        frame_prefix_arg,
 
         world_frame_publisher_node,
         point_cloud_manager_node,

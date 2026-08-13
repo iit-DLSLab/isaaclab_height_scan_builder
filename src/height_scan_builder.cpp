@@ -7,6 +7,7 @@
 
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/common/transforms.h>
+#include <pcl/filters/radius_outlier_removal.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2/exceptions.h>
@@ -38,9 +39,18 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
     this->_accumulation_time_sec = this->declare_parameter<double>(
         "accumulation_time_sec", 0.30);
     this->_max_accumulated_clouds = this->declare_parameter<std::int64_t>(
-        "max_accumulated_clouds", 10);
+        "max_accumulated_clouds", 0);
     this->_accumulation_voxel_leaf = this->declare_parameter<double>(
         "accumulation_voxel_leaf", 0.04);
+    this->_outlier_radius = this->declare_parameter<double>(
+        "outlier_radius", 0.08);
+    this->_outlier_min_neighbors = this->declare_parameter<std::int64_t>(
+        "outlier_min_neighbors", 3);
+    this->_enable_map_shift = this->declare_parameter<bool>(
+        "enable_map_shift", false);
+    this->_map_shift_x = this->declare_parameter<double>("map_shift_x", 0.0);
+    this->_map_shift_y = this->declare_parameter<double>("map_shift_y", 0.0);
+    this->_map_shift_z = this->declare_parameter<double>("map_shift_z", 0.0);
 
     this->_tf_buffer = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     this->_tf_listener = std::make_shared<tf2_ros::TransformListener>(*this->_tf_buffer);
@@ -76,12 +86,37 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
         this->get_logger(),
         "MarkerArray publisher is %s",
         this->_publish_markers ? "enabled" : "disabled");
+    if (this->_max_accumulated_clouds > 0)
+    {
+        RCLCPP_INFO(
+            this->get_logger(),
+            "Temporal accumulation: %.2f s, max %lld clouds, voxel %.3f m",
+            this->_accumulation_time_sec,
+            static_cast<long long>(this->_max_accumulated_clouds),
+            this->_accumulation_voxel_leaf);
+    }
+    else
+    {
+        RCLCPP_INFO(
+            this->get_logger(),
+            "Temporal accumulation: %.2f s, no cloud-count limit, voxel %.3f m",
+            this->_accumulation_time_sec,
+            this->_accumulation_voxel_leaf);
+    }
     RCLCPP_INFO(
         this->get_logger(),
-        "Temporal accumulation: %.2f s, max %lld clouds, voxel %.3f m",
-        this->_accumulation_time_sec,
-        static_cast<long long>(this->_max_accumulated_clouds),
-        this->_accumulation_voxel_leaf);
+        "Radius outlier removal: %s (radius %.3f m, min %lld neighbors)",
+        this->_outlier_radius > 0.0 && this->_outlier_min_neighbors > 0
+            ? "enabled" : "disabled",
+        this->_outlier_radius,
+        static_cast<long long>(this->_outlier_min_neighbors));
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Global map shift: %s (x %.3f m, y %.3f m, z %.3f m)",
+        this->_enable_map_shift ? "enabled" : "disabled",
+        this->_map_shift_x,
+        this->_map_shift_y,
+        this->_map_shift_z);
 }
 
 double HeightScanBuilder::loopRateHz() const
@@ -137,20 +172,42 @@ void HeightScanBuilder::cloudCallback(const sensor_msgs::msg::PointCloud2::Share
     std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> retainedClouds;
     {
         std::lock_guard<std::mutex> lock(this->_cloud_mutex);
-        this->_cloud_history.emplace_back(stampNs, cloud);
 
-        const auto accumulationTimeNs = static_cast<std::int64_t>(
-            this->_accumulation_time_sec * 1e9);
-        while (!this->_cloud_history.empty() &&
-               stampNs - this->_cloud_history.front().first > accumulationTimeNs)
+        // A timestamp reset (for example after restarting simulation time) makes
+        // the existing temporal window invalid.
+        if (!this->_cloud_history.empty() &&
+            stampNs < this->_cloud_history.back().first)
         {
-            this->_cloud_history.pop_front();
+            this->_cloud_history.clear();
         }
 
-        while (this->_cloud_history.size() >
-               static_cast<std::size_t>(this->_max_accumulated_clouds))
+        this->_cloud_history.emplace_back(stampNs, cloud);
+
+        if (this->_accumulation_time_sec <= 0.0)
         {
-            this->_cloud_history.pop_front();
+            while (this->_cloud_history.size() > 1)
+            {
+                this->_cloud_history.pop_front();
+            }
+        }
+        else
+        {
+            const auto accumulationTimeNs = static_cast<std::int64_t>(
+                this->_accumulation_time_sec * 1e9);
+            while (!this->_cloud_history.empty() &&
+                   stampNs - this->_cloud_history.front().first > accumulationTimeNs)
+            {
+                this->_cloud_history.pop_front();
+            }
+        }
+
+        if (this->_max_accumulated_clouds > 0)
+        {
+            while (this->_cloud_history.size() >
+                   static_cast<std::size_t>(this->_max_accumulated_clouds))
+            {
+                this->_cloud_history.pop_front();
+            }
         }
 
         retainedClouds.reserve(this->_cloud_history.size());
@@ -178,6 +235,20 @@ void HeightScanBuilder::cloudCallback(const sensor_msgs::msg::PointCloud2::Share
     voxelGrid.setInputCloud(accumulatedCloud);
     voxelGrid.setLeafSize(voxelLeaf, voxelLeaf, voxelLeaf);
     voxelGrid.filter(*filteredCloud);
+
+    if (this->_outlier_radius > 0.0 &&
+        this->_outlier_min_neighbors > 0 &&
+        !filteredCloud->empty())
+    {
+        auto inlierCloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+        pcl::RadiusOutlierRemoval<pcl::PointXYZ> outlierRemoval;
+        outlierRemoval.setInputCloud(filteredCloud);
+        outlierRemoval.setRadiusSearch(this->_outlier_radius);
+        outlierRemoval.setMinNeighborsInRadius(
+            static_cast<int>(this->_outlier_min_neighbors));
+        outlierRemoval.filter(*inlierCloud);
+        filteredCloud = std::move(inlierCloud);
+    }
 
     xyCloud->reserve(filteredCloud->size());
 
@@ -300,6 +371,18 @@ void HeightScanBuilder::buildHeightScan()
             }
         }
     }
+
+    if (this->_enable_map_shift)
+    {
+        for (int pointIdx = 0; pointIdx < scan.points_size(); ++pointIdx)
+        {
+            PointScan * pointScan = scan.mutable_points(pointIdx);
+            pointScan->set_x(pointScan->x() + this->_map_shift_x);
+            pointScan->set_y(pointScan->y() + this->_map_shift_y);
+            pointScan->set_z(pointScan->z() + this->_map_shift_z);
+        }
+    }
+
     this->publishScan(scan);
     this->publishPointCloud(scan);
 
