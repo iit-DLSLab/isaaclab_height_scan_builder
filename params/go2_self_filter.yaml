@@ -4,24 +4,20 @@ self_filter:
     sensor_frame: ""
 
     # The Go2 collision shapes are thinner than the real legs, and the lidar adds
-    # mixed pixels around their edges: the paddings below (thighs 6 cm, calves 9 cm,
-    # see the per-link entries) remove ~93% of the leg points (my_bag2/9), losing
-    # ~2-4% of the ground around the feet. Steps right in front of the feet (up to
-    # a 17 cm riser) and under the belly are still mapped correctly.
+    # mixed pixels around their edges: the paddings below (thighs 6 cm, calves 9 cm)
+    # remove ~93% of the leg points (my_bag2/9), losing ~2-4% of the ground around
+    # the feet. Steps right in front of the feet (up to a 17 cm riser) and under
+    # the belly are still mapped correctly.
 
-    # For spheres (single scale & padding): feet
+    # Spheres (feet) use these defaults.
     default_sphere_scale: 1.0
     default_sphere_padding: 0.04
 
-    # For boxes (x,y,z scale & padding): thighs (base_link has its own entry)
-    default_box_scale: [1.0, 1.0, 1.0]
-    default_box_padding: [0.06, 0.06, 0.06]
-
-    # For cylinders (radial scale, vertical scale, radial padding, vertical padding):
-    # hips (calves have their own entries). Kept small: a larger hip cylinder would
-    # reach down in front of the hips and could cut high steps there.
-    default_cylinder_scale: [1.0, 1.0]
-    default_cylinder_padding: [0.05, 0.025]
+    # Boxes and cylinders have no defaults here: leggedrobotics/robot_self_filter
+    # applies a per-link box/cylinder padding only if the same link also sets the
+    # scale, and otherwise silently falls back to default_sphere_padding (it
+    # ignores default_box_* / default_cylinder_*). So every box/cylinder link below
+    # sets both, explicitly.
 
     keep_organized: false
     zero_for_removed_points: false
@@ -52,7 +48,7 @@ self_filter:
         - RL_foot
         - RR_hip
         - RR_thigh
-        - RR_calf 
+        - RR_calf
         - RR_calflower
         - RR_calflower1
         - RR_foot
@@ -63,31 +59,72 @@ self_filter:
       # the ground: on my_bag* this removes ~3/4 of the spurious cells under the
       # trunk, while a 10 cm step under the belly is still mapped correctly.
       base_link:
+        box_scale: [1.0, 1.0, 1.0]
         box_padding: [0.0, 0.01, 0.12]
 
-      # Calves: larger radial padding than the hips (default_cylinder_padding)
+      # Hips (cylinders [radial, vertical]): kept small, a larger hip cylinder
+      # would reach down in front of the hips and could cut high steps there.
+      FL_hip:
+        cylinder_scale: [1.0, 1.0]
+        cylinder_padding: [0.05, 0.025]
+      FR_hip:
+        cylinder_scale: [1.0, 1.0]
+        cylinder_padding: [0.05, 0.025]
+      RL_hip:
+        cylinder_scale: [1.0, 1.0]
+        cylinder_padding: [0.05, 0.025]
+      RR_hip:
+        cylinder_scale: [1.0, 1.0]
+        cylinder_padding: [0.05, 0.025]
+
+      # Thighs (boxes [x, y, z])
+      FL_thigh:
+        box_scale: [1.0, 1.0, 1.0]
+        box_padding: [0.06, 0.06, 0.06]
+      FR_thigh:
+        box_scale: [1.0, 1.0, 1.0]
+        box_padding: [0.06, 0.06, 0.06]
+      RL_thigh:
+        box_scale: [1.0, 1.0, 1.0]
+        box_padding: [0.06, 0.06, 0.06]
+      RR_thigh:
+        box_scale: [1.0, 1.0, 1.0]
+        box_padding: [0.06, 0.06, 0.06]
+
+      # Calves (cylinders [radial, vertical])
       FL_calf:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       FL_calflower:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       FL_calflower1:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       FR_calf:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       FR_calflower:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       FR_calflower1:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       RL_calf:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       RL_calflower:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       RL_calflower1:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       RR_calf:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       RR_calflower:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
       RR_calflower1:
+        cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.09, 0.025]
-                                  
