@@ -43,6 +43,9 @@ private:
     const std::string & to_frame,
     Cloud2 & out);
 
+  // Shortens every ray by range_offset_ (cloud must still be in the sensor frame).
+  void correctRange(Cloud2 & cloud) const;
+
   void filterCloud(
     const pcl::PointCloud<pcl::PointXYZ> & in,
     pcl::PointCloud<pcl::PointXYZ> & out) const;
@@ -68,6 +71,7 @@ private:
   float voxel_leaf_size_;
   float box_x_;
   float box_y_;
+  float range_offset_;
 };
 
 }  // namespace isaaclab

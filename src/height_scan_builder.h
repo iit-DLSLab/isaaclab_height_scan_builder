@@ -45,6 +45,10 @@ public:
 
 private:
     void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    // indices must not be empty
+    float cellHeight(
+        const pcl::PointCloud<pcl::PointXYZ> & cloud,
+        const std::vector<int> & indices) const;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud;
     pcl::PointCloud<pcl::PointXYZ>::Ptr _xy_cloud;
@@ -68,4 +72,5 @@ private:
     double _accumulation_time_sec{0.30};
     std::int64_t _max_accumulated_clouds{10};
     double _accumulation_voxel_leaf{0.04};
+    double _height_percentile{1.0};
 };

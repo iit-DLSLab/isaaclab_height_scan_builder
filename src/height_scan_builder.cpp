@@ -1,7 +1,7 @@
 #include "height_scan_builder.h"
 
+#include <algorithm>
 #include <functional>
-#include <limits>
 #include <utility>
 #include <vector>
 
@@ -41,6 +41,8 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
         "max_accumulated_clouds", 10);
     this->_accumulation_voxel_leaf = this->declare_parameter<double>(
         "accumulation_voxel_leaf", 0.04);
+    this->_height_percentile = std::clamp(
+        this->declare_parameter<double>("height_percentile", 1.0), 0.0, 1.0);
 
     this->_tf_buffer = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     this->_tf_listener = std::make_shared<tf2_ros::TransformListener>(*this->_tf_buffer);
@@ -82,11 +84,33 @@ HeightScanBuilder::HeightScanBuilder(const rclcpp::NodeOptions & options)
         this->_accumulation_time_sec,
         static_cast<long long>(this->_max_accumulated_clouds),
         this->_accumulation_voxel_leaf);
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Cell height: %.2f percentile of the z values (1.0 = max)",
+        this->_height_percentile);
 }
 
 double HeightScanBuilder::loopRateHz() const
 {
     return this->_loop_rate_hz;
+}
+
+float HeightScanBuilder::cellHeight(
+    const pcl::PointCloud<pcl::PointXYZ> & cloud,
+    const std::vector<int> & indices) const
+{
+    // Nearest-rank percentile: below 1.0 it ignores the few highest points of the
+    // cell, i.e. isolated lidar outliers (leg edges, mixed pixels).
+    std::vector<float> zs;
+    zs.reserve(indices.size());
+    for (const int idx : indices)
+    {
+        zs.push_back(cloud.points[idx].z);
+    }
+    const auto rank = zs.begin() + static_cast<std::ptrdiff_t>(
+        this->_height_percentile * static_cast<double>(zs.size() - 1));
+    std::nth_element(zs.begin(), rank, zs.end());
+    return *rank;
 }
 
 void HeightScanBuilder::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -224,6 +248,9 @@ void HeightScanBuilder::buildHeightScan()
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(xyCloud);
 
+    std::vector<float> observedZ;
+    std::vector<int> emptyCells;
+
     for (double y = this->_height_scan_cfg.offset.y - this->_height_scan_cfg.width / 2; y <= this->_height_scan_cfg.offset.y + this->_height_scan_cfg.width / 2; y += this->_height_scan_cfg.resolution)
     {
         for (double x = this->_height_scan_cfg.offset.x - this->_height_scan_cfg.height / 2; x <= this->_height_scan_cfg.offset.x + this->_height_scan_cfg.height / 2; x += this->_height_scan_cfg.resolution)
@@ -238,7 +265,7 @@ void HeightScanBuilder::buildHeightScan()
                     indices,
                     squaredDistances) == 0)
             {
-                // No point found: average the max-z of the 4 neighbouring grid positions
+                // No point found: average the height of the 4 neighbouring grid positions
                 const double res = this->_height_scan_cfg.resolution;
                 const std::array<std::pair<double,double>, 4> neighbours = {{
                     {x - res, y}, {x + res, y}, {x, y - res}, {x, y + res}
@@ -255,13 +282,7 @@ void HeightScanBuilder::buildHeightScan()
                             nIndices,
                             nDistances) > 0)
                     {
-                        float nMaxZ = -std::numeric_limits<float>::infinity();
-                        for (const int nIdx : nIndices)
-                        {
-                            if (cloud->points[nIdx].z > nMaxZ)
-                                nMaxZ = cloud->points[nIdx].z;
-                        }
-                        zSum += nMaxZ;
+                        zSum += this->cellHeight(*cloud, nIndices);
                         ++zCount;
                     }
                 }
@@ -269,37 +290,34 @@ void HeightScanBuilder::buildHeightScan()
                 pointScan->set_x(x);
                 pointScan->set_y(y);
                 pointScan->set_z(zCount > 0 ? zSum / zCount : 0.0f);
+                if (zCount == 0)
+                {
+                    emptyCells.push_back(scan.points_size() - 1);
+                }
                 continue;
             }
 
-            int maxZIdx = -1;
-            float maxZ = -std::numeric_limits<float>::infinity();
-
-            for (const int idx : indices)
-            {
-                if (cloud->points[idx].z > maxZ)
-                {
-                    maxZ = cloud->points[idx].z;
-                    maxZIdx = idx;
-                }
-            }
-
-            if (maxZIdx < 0)
-            {
-                PointScan * pointScan = scan.add_points();
-                pointScan->set_x(x);
-                pointScan->set_y(y);
-                pointScan->set_z(5.0); // No point found, set to a default high value
-            }
-            else
-            {
-                PointScan * pointScan = scan.add_points();
-                pointScan->set_x(x);
-                pointScan->set_y(y);
-                pointScan->set_z(cloud->points[maxZIdx].z);
-            }
+            const float cellZ = this->cellHeight(*cloud, indices);
+            PointScan * pointScan = scan.add_points();
+            pointScan->set_x(x);
+            pointScan->set_y(y);
+            pointScan->set_z(cellZ);
+            observedZ.push_back(cellZ);
         }
     }
+
+    // Cells with nothing observed nearby (e.g. occluded by the trunk) would stay at
+    // z = 0, i.e. at base height in base_link: use the median observed height instead.
+    if (!emptyCells.empty() && !observedZ.empty())
+    {
+        const auto median = observedZ.begin() + observedZ.size() / 2;
+        std::nth_element(observedZ.begin(), median, observedZ.end());
+        for (const int idx : emptyCells)
+        {
+            scan.mutable_points(idx)->set_z(*median);
+        }
+    }
+
     this->publishScan(scan);
     this->publishPointCloud(scan);
 

@@ -1,5 +1,8 @@
 #include "point_cloud_manager.h"
 
+#include <cmath>
+
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/voxel_grid.h>
@@ -19,6 +22,8 @@ PointCloudManagerNode::PointCloudManagerNode(const rclcpp::NodeOptions & options
   declare_parameter<float>("voxel_leaf_size", 0.05f);
   declare_parameter<float>("box_x", 2.0f);
   declare_parameter<float>("box_y", 1.5f);
+  // Constant bias subtracted from every measured range [m] (Unitree L1 over-reads by ~0.10 m).
+  declare_parameter<float>("range_offset", 0.0f);
   declare_parameter<int>("sync_queue_size", 10);
   declare_parameter<double>("sync_slop", 0.1);
 
@@ -30,6 +35,7 @@ PointCloudManagerNode::PointCloudManagerNode(const rclcpp::NodeOptions & options
   voxel_leaf_size_       = static_cast<float>(get_parameter("voxel_leaf_size").as_double());
   box_x_                 = static_cast<float>(get_parameter("box_x").as_double());
   box_y_                 = static_cast<float>(get_parameter("box_y").as_double());
+  range_offset_          = static_cast<float>(get_parameter("range_offset").as_double());
   const int queue_size   = get_parameter("sync_queue_size").as_int();
   const double slop      = get_parameter("sync_slop").as_double();
 
@@ -71,6 +77,7 @@ PointCloudManagerNode::PointCloudManagerNode(const rclcpp::NodeOptions & options
   RCLCPP_INFO(get_logger(), "  target_frame: %s", target_frame_.c_str());
   RCLCPP_INFO(get_logger(), "  voxel_leaf: %.3f m", voxel_leaf_size_);
   RCLCPP_INFO(get_logger(), "  box_x: %.2f m  box_y: %.2f m", box_x_, box_y_);
+  RCLCPP_INFO(get_logger(), "  range_offset: %.3f m", range_offset_);
   if (!topic2.empty()) {
     RCLCPP_INFO(get_logger(), "  sync slop: %.3f s  queue: %d", slop, queue_size);
   }
@@ -109,12 +116,39 @@ bool PointCloudManagerNode::transformCloud(
   const std::string & to_frame,
   pcl::PointCloud<pcl::PointXYZ> & out)
 {
+  // The range correction must be applied in the sensor frame, before any transform.
+  const Cloud2 * in = msg.get();
+  Cloud2 corrected;
+  if (range_offset_ != 0.0f) {
+    corrected = *msg;
+    correctRange(corrected);
+    in = &corrected;
+  }
+
   sensor_msgs::msg::PointCloud2 transformed_msg;
-  if (!transformCloud(*msg, to_frame, transformed_msg)) {
+  if (!transformCloud(*in, to_frame, transformed_msg)) {
     return false;
   }
   pcl::fromROSMsg(transformed_msg, out);
   return true;
+}
+
+void PointCloudManagerNode::correctRange(Cloud2 & cloud) const
+{
+  sensor_msgs::PointCloud2Iterator<float> x(cloud, "x");
+  sensor_msgs::PointCloud2Iterator<float> y(cloud, "y");
+  sensor_msgs::PointCloud2Iterator<float> z(cloud, "z");
+  for (; x != x.end(); ++x, ++y, ++z) {
+    const float range = std::sqrt(*x * *x + *y * *y + *z * *z);
+    // Also skips NaN points and points closer than the offset itself.
+    if (!(range > range_offset_)) {
+      continue;
+    }
+    const float scale = (range - range_offset_) / range;
+    *x *= scale;
+    *y *= scale;
+    *z *= scale;
+  }
 }
 
 bool PointCloudManagerNode::transformCloud(

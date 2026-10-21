@@ -3,17 +3,21 @@ self_filter:
   ros__parameters:
     sensor_frame: ""
 
+    # The Go2 collision shapes are thinner than the real legs: with 2.5 cm padding
+    # ~30% of the lidar points on calves/feet stay outside them (measured on my_bag2).
+    # Larger radial padding catches ~90% of them while removing ~2% of the ground.
+
     # For spheres (single scale & padding)
     default_sphere_scale: 1.0
-    default_sphere_padding: 0.025
+    default_sphere_padding: 0.04
 
     # For boxes (x,y,z scale & padding)
     default_box_scale: [1.0, 1.0, 1.0]
-    default_box_padding: [0.025, 0.025, 0.025]
+    default_box_padding: [0.04, 0.04, 0.04]
 
     # For cylinders (radial scale, vertical scale, radial padding, vertical padding)
     default_cylinder_scale: [1.0, 1.0]
-    default_cylinder_padding: [0.025, 0.025]
+    default_cylinder_padding: [0.05, 0.025]
 
     keep_organized: false
     zero_for_removed_points: false
@@ -23,6 +27,7 @@ self_filter:
     # Link definitions
     self_see_links:
       names:
+        - base_link
         - FL_hip
         - FL_thigh
         - FL_calf
@@ -47,4 +52,12 @@ self_filter:
         - RR_calflower
         - RR_calflower1
         - RR_foot
+
+      # Rays grazing the front-bottom edge of the body return mixed pixels that
+      # form a streak under the belly (|y| < ~4 cm, down to ~20 cm below the body).
+      # The box is extended downwards only, and its bottom stays ~9-17 cm above
+      # the ground: on my_bag* this removes ~3/4 of the spurious cells under the
+      # trunk, while a 10 cm step under the belly is still mapped correctly.
+      base_link:
+        box_padding: [0.0, 0.01, 0.12]
                                   

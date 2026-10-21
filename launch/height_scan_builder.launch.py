@@ -79,6 +79,18 @@ def generate_launch_description():
         default_value='true'
     )
 
+    # Constant bias [m] subtracted from every lidar range before any transform.
+    range_offset_arg = DeclareLaunchArgument(
+        'range_offset',
+        default_value='0.0'
+    )
+
+    # Percentile of the z values used as cell height (1.0 = max).
+    height_percentile_arg = DeclareLaunchArgument(
+        'height_percentile',
+        default_value='1.0'
+    )
+
 
     # ------------------------------------------------------------------
     # Publish world -> base_link from IMU
@@ -143,6 +155,11 @@ def generate_launch_description():
                 'voxel_leaf_size': 0.05,
                 'box_x': 2.0,
                 'box_y': 1.5,
+
+                'range_offset': ParameterValue(
+                    LaunchConfiguration('range_offset'),
+                    value_type=float,
+                ),
 
                 'use_sim_time': LaunchConfiguration('use_sim_time'),
             }
@@ -209,10 +226,14 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {
-                'width': 0.8,
-                'height': 0.6,
+                'width': 1.2,
+                'height': 1.2,
                 'resolution': 0.1,
-                'offset_x': 0.4,
+                'offset_x': 0.0,
+                'height_percentile': ParameterValue(
+                    LaunchConfiguration('height_percentile'),
+                    value_type=float,
+                ),
                 'use_sim_time': LaunchConfiguration('use_sim_time'),
                 'scan_cloud_topic': LaunchConfiguration('scan_cloud_topic'),
                 'marker_topic': LaunchConfiguration('marker_topic'),
@@ -255,6 +276,8 @@ def generate_launch_description():
         publish_world_frame_arg,
 
         self_filter_arg,
+        range_offset_arg,
+        height_percentile_arg,
 
         world_frame_publisher_node,
         point_cloud_manager_node,
