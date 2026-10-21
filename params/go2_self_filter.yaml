@@ -1,83 +1,84 @@
-# ============================ filter_improved.yaml ============================
+# ============================ go2_self_filter.yaml ============================
+# Self filter for the MuJoCo model robot_model/go2/go2.xml, converted to URDF by
+# launch/mjcf_to_urdf.py. The paddings were tuned on the collision shapes of the
+# old go2_description URDF (see the git history of this file) and are mapped
+# onto the MJCF shapes (see the comments per link).
+#
+# The converter turns each capsule into a cylinder plus two end-cap spheres on
+# the same link: the cylinder uses the link cylinder_* values, the spheres the
+# link padding/scale (default_sphere_* if unset).
 self_filter:
   ros__parameters:
     sensor_frame: ""
-
-    # The Go2 collision shapes are thinner than the real legs, and the lidar adds
-    # mixed pixels around their edges: the paddings below (thighs 6 cm, calves 9 cm)
-    # remove ~93% of the leg points (my_bag2/9), losing ~2-4% of the ground around
-    # the feet. Steps right in front of the feet (up to a 17 cm riser) and under
-    # the belly are still mapped correctly.
 
     # Spheres (feet) use these defaults.
     default_sphere_scale: 1.0
     default_sphere_padding: 0.04
 
-    # Boxes and cylinders have no defaults here: leggedrobotics/robot_self_filter
-    # applies a per-link box/cylinder padding only if the same link also sets the
-    # scale, and otherwise silently falls back to default_sphere_padding (it
-    # ignores default_box_* / default_cylinder_*). So every box/cylinder link below
-    # sets both, explicitly.
+    # Every box/cylinder link sets both scale and padding: otherwise
+    # robot_self_filter silently uses the link sphere padding.
 
     keep_organized: false
     zero_for_removed_points: false
     invert: false
     min_sensor_dist: 0.1
 
-    # Link definitions
+    # Link definitions. The MJCF has no calflower links: all three calf boxes
+    # belong to *_calf.
     self_see_links:
       names:
         - base_link
         - FL_hip
         - FL_thigh
         - FL_calf
-        - FL_calflower
-        - FL_calflower1
         - FL_foot
         - FR_hip
         - FR_thigh
         - FR_calf
-        - FR_calflower
-        - FR_calflower1
         - FR_foot
         - RL_hip
         - RL_thigh
         - RL_calf
-        - RL_calflower
-        - RL_calflower1
         - RL_foot
         - RR_hip
         - RR_thigh
         - RR_calf
-        - RR_calflower
-        - RR_calflower1
         - RR_foot
 
-      # Rays grazing the front-bottom edge of the body return mixed pixels that
-      # form a streak under the belly (|y| < ~4 cm, down to ~20 cm below the body).
-      # The box is extended downwards only, and its bottom stays ~9-17 cm above
-      # the ground: on my_bag* this removes ~3/4 of the spurious cells under the
-      # trunk, while a 10 cm step under the belly is still mapped correctly.
+      # The MJCF trunk box is 0.26 x 0.0935 x 0.12 (URDF: 0.3762 x 0.0935 x 0.114).
+      # This padding gives it the same padded extent as the URDF box (x +-0.188,
+      # y +-0.057, z +-0.177), which covers the streak of mixed pixels under the
+      # belly. It also applies to the two small boxes on top and at the front.
+      # The side and head capsules and the head sphere are also on base_link: they
+      # stay unpadded, so the head sphere (bottom ~11 cm below the base) does not
+      # cut high steps in front of the robot.
       base_link:
         box_scale: [1.0, 1.0, 1.0]
-        box_padding: [0.0, 0.01, 0.12]
+        box_padding: [0.058, 0.01, 0.117]
+        cylinder_scale: [1.0, 1.0]
+        cylinder_padding: [0.0, 0.0]
+        padding: 0.0
 
-      # Hips (cylinders [radial, vertical]): kept small, a larger hip cylinder
-      # would reach down in front of the hips and could cut high steps there.
+      # Hips: capsules along y (radius 0.046). Same radial padding as the URDF
+      # hip cylinders, also on the end caps.
       FL_hip:
         cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.05, 0.025]
+        padding: 0.05
       FR_hip:
         cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.05, 0.025]
+        padding: 0.05
       RL_hip:
         cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.05, 0.025]
+        padding: 0.05
       RR_hip:
         cylinder_scale: [1.0, 1.0]
         cylinder_padding: [0.05, 0.025]
+        padding: 0.05
 
-      # Thighs (boxes [x, y, z])
+      # Thighs (boxes [x, y, z]): same box as the URDF.
       FL_thigh:
         box_scale: [1.0, 1.0, 1.0]
         box_padding: [0.06, 0.06, 0.06]
@@ -91,40 +92,17 @@ self_filter:
         box_scale: [1.0, 1.0, 1.0]
         box_padding: [0.06, 0.06, 0.06]
 
-      # Calves (cylinders [radial, vertical])
+      # Calves: three boxes along the calf (z) instead of the URDF cylinders, so
+      # the URDF [radial, vertical] = [0.09, 0.025] becomes [x, y, z] = [0.09, 0.09, 0.025].
       FL_calf:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
-      FL_calflower:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
-      FL_calflower1:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
+        box_scale: [1.0, 1.0, 1.0]
+        box_padding: [0.09, 0.09, 0.025]
       FR_calf:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
-      FR_calflower:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
-      FR_calflower1:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
+        box_scale: [1.0, 1.0, 1.0]
+        box_padding: [0.09, 0.09, 0.025]
       RL_calf:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
-      RL_calflower:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
-      RL_calflower1:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
+        box_scale: [1.0, 1.0, 1.0]
+        box_padding: [0.09, 0.09, 0.025]
       RR_calf:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
-      RR_calflower:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
-      RR_calflower1:
-        cylinder_scale: [1.0, 1.0]
-        cylinder_padding: [0.09, 0.025]
+        box_scale: [1.0, 1.0, 1.0]
+        box_padding: [0.09, 0.09, 0.025]

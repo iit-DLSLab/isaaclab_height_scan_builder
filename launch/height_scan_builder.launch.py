@@ -3,7 +3,7 @@ import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PythonExpression, Command
+from launch.substitutions import LaunchConfiguration, PythonExpression, Command, PathJoinSubstitution
 from launch.conditions import IfCondition
 
 from launch_ros.actions import Node
@@ -77,6 +77,19 @@ def generate_launch_description():
     self_filter_arg = DeclareLaunchArgument(
         'self_filter',
         default_value='true'
+    )
+
+    # Collision model of the self filter (required): a URDF, or a MuJoCo MJCF
+    # converted to URDF on the fly by mjcf_to_urdf.py (its root body is renamed
+    # to the base_link argument), e.g. robot_model/go2/go2.xml.
+    self_filter_model_arg = DeclareLaunchArgument(
+        'self_filter_model'
+    )
+
+    # Self filter paddings, from params/. They are tuned for one collision model.
+    self_filter_config_arg = DeclareLaunchArgument(
+        'self_filter_config',
+        default_value='go2_self_filter.yaml'
     )
 
     # Constant bias [m] subtracted from every lidar range before any transform.
@@ -187,13 +200,13 @@ def generate_launch_description():
             LaunchConfiguration('self_filter')
         ),
         launch_arguments={
-            'filter_config': os.path.join(
+            'filter_config': PathJoinSubstitution([
                 get_package_share_directory(
                     'isaaclab_height_scan_builder'
                 ),
                 'params',
-                'go2_self_filter.yaml'
-            ),
+                LaunchConfiguration('self_filter_config'),
+            ]),
 
             'in_pointcloud_topic':
                 LaunchConfiguration('output_topic'),
@@ -202,11 +215,17 @@ def generate_launch_description():
                 '/filtered',
 
             'robot_description': Command(
-                'cat ' + os.path.join(
-                    get_package_share_directory('go2_description'),
-                    'urdf',
-                    'go2_description.urdf',
-                )
+                [
+                    'python3 ',
+                    os.path.join(
+                        get_package_share_directory('isaaclab_height_scan_builder'),
+                        'launch',
+                        'mjcf_to_urdf.py',
+                    ),
+                    ' ', LaunchConfiguration('self_filter_model'),
+                    ' --root-link ', LaunchConfiguration('base_link'),
+                ],
+                on_stderr='warn',
             ),
 
             'lidar_sensor_type': '0',
@@ -276,6 +295,8 @@ def generate_launch_description():
         publish_world_frame_arg,
 
         self_filter_arg,
+        self_filter_model_arg,
+        self_filter_config_arg,
         range_offset_arg,
         height_percentile_arg,
 
