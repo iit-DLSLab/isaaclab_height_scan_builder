@@ -112,10 +112,6 @@ install(TARGETS height_scan_builder_node point_cloud_manager_node imu_world_fram
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY urdf
-  DESTINATION share/${PROJECT_NAME}
-)
-
 install(DIRECTORY proto
   DESTINATION share/${PROJECT_NAME}
 )
