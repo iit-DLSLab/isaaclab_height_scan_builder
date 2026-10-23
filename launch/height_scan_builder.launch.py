@@ -14,9 +14,10 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
 
+    # dls2_interface/msg/Imu topic, used for world -> base_link.
     imu_topic_arg = DeclareLaunchArgument(
         'imu_topic',
-        default_value='/xbotcore/imu/imu_link'
+        default_value='/imu'
     )
 
     base_link_arg = DeclareLaunchArgument(

@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
 find_package(cppzmq REQUIRED)
+find_package(dls2_interface REQUIRED)
 set(protobuf_MODULE_COMPATIBLE ON)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(pcl_conversions REQUIRED)
@@ -101,6 +102,7 @@ ament_target_dependencies(lidar_extrinsic_calibrator_node
 )
 
 ament_target_dependencies(imu_world_frame_publisher_node
+  dls2_interface
   rclcpp
   sensor_msgs
   tf2

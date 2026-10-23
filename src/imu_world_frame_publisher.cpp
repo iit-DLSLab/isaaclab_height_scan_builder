@@ -65,7 +65,7 @@ ImuWorldFramePublisherNode::ImuWorldFramePublisherNode(const rclcpp::NodeOptions
   tf_buffer_.reset();
 
   auto qos = rclcpp::SensorDataQoS();
-  imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
+  imu_sub_ = create_subscription<dls2_interface::msg::Imu>(
     imu_topic_, qos,
     std::bind(&ImuWorldFramePublisherNode::imuCallback, this, std::placeholders::_1));
   cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -80,10 +80,10 @@ ImuWorldFramePublisherNode::ImuWorldFramePublisherNode(const rclcpp::NodeOptions
   RCLCPP_INFO(get_logger(), "  imu_frame: %s", imu_frame_.c_str());
 }
 
-void ImuWorldFramePublisherNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr & msg)
+void ImuWorldFramePublisherNode::imuCallback(const dls2_interface::msg::Imu::ConstSharedPtr & msg)
 {
-  const auto & q_msg = msg->orientation;
-  const Eigen::Quaterniond w_q_imu(q_msg.w, q_msg.x, q_msg.y, q_msg.z);
+  const auto & q_msg = msg->orientation;  // x, y, z, w
+  const Eigen::Quaterniond w_q_imu(q_msg[3], q_msg[0], q_msg[1], q_msg[2]);
   if (w_q_imu.norm() < 1e-8) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "IMU orientation is near zero quaternion");
     return;

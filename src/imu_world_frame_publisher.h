@@ -5,8 +5,8 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <dls2_interface/msg/imu.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/buffer.h>
@@ -21,11 +21,11 @@ public:
   explicit ImuWorldFramePublisherNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
-  void imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr & msg);
+  void imuCallback(const dls2_interface::msg::Imu::ConstSharedPtr & msg);
   void cloudCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & msg);
   void publishTransform(const rclcpp::Time & stamp, const Eigen::Quaterniond & q_delta);
 
-  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+  rclcpp::Subscription<dls2_interface::msg::Imu>::SharedPtr imu_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
 
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
